@@ -1,8 +1,11 @@
 package main
 
 import (
+	"demo_lsp/lsp"
 	"demo_lsp/rpc"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -18,12 +21,14 @@ func main() {
 
 	for scanner.Scan() {
 		// Listener loop
+		writer := os.Stdout
 		msg := scanner.Bytes()
-		handleMessage(msg, logger)
+		handleMessage(msg, writer, logger)
 	}
 }
 
-func handleMessage(msg []byte, logger *log.Logger) {
+func handleMessage(msg []byte, writer *os.File, logger *log.Logger) {
+	logger.Printf("Message received: %s\n", msg)
 	method, content, err := rpc.DecodeMsg(msg)
 	if err != nil {
 		logger.Printf("In \"handleMessage\" Error decoding message: %s \n", err)
@@ -32,8 +37,29 @@ func handleMessage(msg []byte, logger *log.Logger) {
 
 	switch method {
 	case "initialize":
-		logger.Println("initialize")
-		logger.Printf("Content: %s\n", content)
+		var initializeRequest lsp.Initialize
+
+		if err := json.Unmarshal(content, &initializeRequest); err != nil {
+			logger.Printf("Error unmarshalling initialize request: %s\n", err)
+			return
+		}
+
+		logger.Printf("Initialize Request by client: %s, version: %s",
+			initializeRequest.Params.ClientInfo.Name,
+			initializeRequest.Params.ClientInfo.Version)
+
+		initializeResponse := lsp.NewInitializeResponse(*initializeRequest.Id)
+		writeResponse(initializeResponse, writer, logger)
+	}
+}
+
+func writeResponse(msg any, writer io.Writer, logger *log.Logger) {
+	encodedMsg := rpc.EncodeMsg(msg)
+	_, err := writer.Write([]byte(encodedMsg))
+	if err != nil {
+		logger.Printf("Error writing response: %s\n", err)
+	} else {
+		logger.Printf("Response sent: %s\n", encodedMsg)
 	}
 }
 
