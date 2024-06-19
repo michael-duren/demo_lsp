@@ -91,8 +91,18 @@ func handleMessage(msg []byte, state thesaurus.State, writer *os.File, logger *l
 
 		hoveredWord := state.GetWordFromRange(hoverRequest.Params.TextDocument.Uri, hoverRequest.Params.TextDocumentPositionParams)
 
-		// reply with the word
-		hoverResponse := lsp.NewHoverResponse(*hoverRequest.Id, hoveredWord)
+		hoverResponseMsg := fmt.Sprintf("Synonyms for \"%s\": ", hoveredWord)
+		synonyms, err := thesaurus.Lookup(hoveredWord, logger)
+		if err != nil {
+			logger.Printf("Error looking up synonyms for %s: %s\n", hoveredWord, err)
+		}
+
+		for _, synonym := range synonyms {
+			hoverResponseMsg += fmt.Sprintf("%s, ", synonym)
+		}
+
+		// reply with the synonyms
+		hoverResponse := lsp.NewHoverResponse(*hoverRequest.Id, hoverResponseMsg)
 		writeResponse(hoverResponse, writer, logger)
 	}
 }
