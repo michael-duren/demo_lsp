@@ -25,7 +25,9 @@ type InitializeResult struct {
 	Capabilities ServerCapabilities `json:"capabilities"`
 }
 
-type ServerCapabilities struct{}
+type ServerCapabilities struct {
+	TextDocumentSync int `json:"textDocumentSync"`
+}
 
 type ServerInfo struct {
 	Name    string `json:"name"`
@@ -39,7 +41,9 @@ func NewInitializeResponse(id int) InitializeResponse {
 			Jsonrpc: "2.0",
 		},
 		Result: InitializeResult{
-			Capabilities: ServerCapabilities{}, // what we're able to do
+			Capabilities: ServerCapabilities{
+				TextDocumentSync: 1,
+			}, // what we're able to do
 			ServerInfo: ServerInfo{
 				Name:    "demo_lsp", // name of lsp
 				Version: "0.0.0.0",  // version of lsp
