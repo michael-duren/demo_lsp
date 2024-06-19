@@ -3,6 +3,7 @@ package main
 import (
 	"demo_lsp/lsp"
 	"demo_lsp/rpc"
+	"demo_lsp/thesaurus"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -18,16 +19,17 @@ func main() {
 
 	// Setup scanner
 	scanner := rpc.CreateScanner()
+	state := thesaurus.NewState()
 
 	for scanner.Scan() {
 		// Listener loop
 		writer := os.Stdout
 		msg := scanner.Bytes()
-		handleMessage(msg, writer, logger)
+		handleMessage(msg, state, writer, logger)
 	}
 }
 
-func handleMessage(msg []byte, writer *os.File, logger *log.Logger) {
+func handleMessage(msg []byte, state thesaurus.State, writer *os.File, logger *log.Logger) {
 	logger.Printf("Message received: %s\n", msg)
 	method, content, err := rpc.DecodeMsg(msg)
 	if err != nil {
@@ -50,6 +52,48 @@ func handleMessage(msg []byte, writer *os.File, logger *log.Logger) {
 
 		initializeResponse := lsp.NewInitializeResponse(*initializeRequest.Id)
 		writeResponse(initializeResponse, writer, logger)
+
+	case "textDocument/didOpen":
+		var request lsp.DidOpenTextDocumentNotification
+
+		if err := json.Unmarshal(content, &request); err != nil {
+			logger.Printf("textDocument/didOpen: %s\n", err)
+			return
+		}
+
+		logger.Printf("Connected to: %s", request.Params.TextDocument.Uri)
+		logger.Printf("Contents: %s", request.Params.TextDocument.Text)
+		state.OpenDocument(request.Params.TextDocument.Uri, request.Params.TextDocument.Text) // open document
+	case "textDocument/didChange":
+		var request lsp.TextDocumentDidChangeNotification
+
+		if err := json.Unmarshal(content, &request); err != nil {
+			logger.Printf("textDocument/didChange: %s\n", err)
+			return
+		}
+
+		logger.Printf("Changed document: %s", request.Params.TextDocument.Uri)
+		logger.Printf("Changes: %s", request.Params.ContentChanges[0].Text)
+
+		for _, change := range request.Params.ContentChanges {
+			// should only be one change
+			state.UpdateDocument(request.Params.TextDocument.Uri, change.Text)
+		}
+
+	case "textDocument/hover":
+		logger.Println("Hover Request")
+		var hoverRequest lsp.HoverRequest
+
+		if err := json.Unmarshal(content, &hoverRequest); err != nil {
+			logger.Printf("Error unmarshalling hover request: %s\n", err)
+			return
+		}
+
+		hoveredWord := state.GetWordFromRange(hoverRequest.Params.TextDocument.Uri, hoverRequest.Params.TextDocumentPositionParams)
+
+		// reply with the word
+		hoverResponse := lsp.NewHoverResponse(*hoverRequest.Id, hoveredWord)
+		writeResponse(hoverResponse, writer, logger)
 	}
 }
 
@@ -83,7 +127,7 @@ func getLogger(filename *string) *log.Logger {
 		}
 	}
 
-	logFile, err := os.OpenFile(log_path, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0666)
+	logFile, err := os.OpenFile(log_path, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o666)
 	if err != nil {
 		panic("hey, you didn't give a good file bozzo")
 	}
