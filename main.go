@@ -92,7 +92,7 @@ func handleMessage(msg []byte, state thesaurus.State, writer *os.File, logger *l
 		hoveredWord := state.GetWordFromRange(hoverRequest.Params.TextDocument.Uri, hoverRequest.Params.TextDocumentPositionParams)
 
 		hoverResponseMsg := fmt.Sprintf("Synonyms for \"%s\": ", hoveredWord)
-		synonyms, err := thesaurus.Lookup(hoveredWord, logger)
+		synonyms, err := thesaurus.Lookup(hoveredWord)
 		if err != nil {
 			logger.Printf("Error looking up synonyms for %s: %s\n", hoveredWord, err)
 		}

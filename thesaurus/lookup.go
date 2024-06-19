@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 )
 
@@ -14,7 +13,7 @@ type Synonyms struct {
 
 const baseUrl = "https://api.datamuse.com"
 
-func Lookup(word string, logger *log.Logger) ([]string, error) {
+func Lookup(word string) ([]string, error) {
 	url := fmt.Sprintf("%s/words?ml=%s", baseUrl, word)
 
 	response, err := http.Get(url)
@@ -28,8 +27,6 @@ func Lookup(word string, logger *log.Logger) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	logger.Println(string(body))
 
 	var synonymResult []Synonyms
 
